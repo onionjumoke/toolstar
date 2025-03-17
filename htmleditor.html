@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-touch-fullscreen" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <title>iOS 6 HTML Editor</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: repeating-linear-gradient(
+                -45deg,
+                #e5e5e5,
+                #e5e5e5 2px,
+                #d1d1d1 2px,
+                #d1d1d1 4px
+            );
+            height: 100vh;
+            overflow: hidden;
+            -webkit-user-select: text;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+        }
+
+        .toolbar {
+            background: linear-gradient(#8c8c8c, #5e5e5e);
+            padding: 8px;
+            border-bottom: 1px solid #333;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            min-height: 44px;
+            z-index: 100;
+            box-sizing: border-box;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 4px 8px;
+            background: linear-gradient(#f8f8f8, #d9d9d9);
+            border: 1px solid #666;
+            border-radius: 6px;
+            color: #000;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+            font-size: 12px;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            min-width: 30px;
+            flex-shrink: 0;
+        }
+
+        .button:active {
+            background: linear-gradient(#d9d9d9, #f8f8f8);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        #editor {
+            width: 100%;
+            height: calc(100vh - 344px); /* Reduced height */
+            margin-top: 44px;
+            margin-bottom: 260px;
+            padding: 10px;
+            border: none;
+            background: #fff;
+            font-family: monospace;
+            font-size: 14px;
+            resize: none;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+            border-radius: 4px;
+            -webkit-appearance: none;
+            position: absolute;
+            top: 44px;
+        }
+
+        #preview {
+            display: none;
+            width: 100%;
+            height: calc(100vh - 344px); /* Matches editor */
+            margin-top: 44px;
+            margin-bottom: 260px;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #999;
+            overflow: auto;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+            border-radius: 4px;
+            position: absolute;
+            top: 44px;
+        }
+
+        .separator {
+            position: fixed;
+            bottom: 250px; /* Adjusted to accommodate larger bottom tab */
+            width: 100%;
+            height: 50px; /* Increased height for better visibility */
+            background: linear-gradient(#8c8c8c, #5e5e5e);
+            border-top: 1px solid #333;
+            border-bottom: 1px solid #333;
+            text-align: center;
+            color: #fff;
+            font-size: 16px;
+            line-height: 50px;
+            text-shadow: 0 -1px 0 rgba(0,0,0,0.5);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .copy-btn {
+            padding: 4px 8px;
+            font-size: 14px;
+        }
+
+        #livePreviewTab {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 250px; /* Increased height */
+            background: #fff;
+            border-top: 1px solid #333;
+            padding: 10px;
+            overflow: auto;
+            font-size: 12px;
+            color: #000;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+            border-radius: 0 0 4px 4px;
+            contenteditable: true;
+            -webkit-appearance: none;
+        }
+
+        .color-input {
+            width: 50px;
+            padding: 2px;
+            margin-left: 2px;
+            border-radius: 4px;
+            border: 1px solid #666;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 320px) {
+            .button {
+                padding: 2px 6px;
+                font-size: 10px;
+                min-width: 25px;
+            }
+            .toolbar {
+                padding: 4px;
+            }
+            #editor, #preview {
+                font-size: 12px;
+            }
+            .color-input {
+                width: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <span class="button" onclick="formatText('bold')">𝐁</span>
+        <span class="button" onclick="formatText('italic')">𝐈</span>
+        <span class="button" onclick="insertTag('p')">¶</span>
+        <span class="button" onclick="insertTag('h1')">𝐇<sub>1</sub></span>
+        <span class="button" onclick="insertImage()">Image</span>
+        <select class="button" onchange="changeFont(this.value)">
+            <option value="">✏</option>
+            <option value="Arial">Arial</option>
+            <option value="Helvetica">Helvetica</option>
+            <option value="Times New Roman">Times</option>
+        </select>
+        <select class="button" onchange="changeColor(this.value)">
+            <option value="">🖻</option>
+            <option value="black">Black</option>
+            <option value="red">Red</option>
+            <option value="blue">Blue</option>
+            <option value="green">Green</option>
+        </select>
+        <input type="text" class="color-input" placeholder="#HEX" onchange="changeColor(this.value)">
+        <select class="button" onchange="changeBackground(this.value)">
+            <option value="">🏞</option>
+            <option value="#ffffff">White</option>
+            <option value="#e0e0e0">Light Gray</option>
+            <option value="#a0a0a0">Gray</option>
+            <option value="#666666">Dark Gray</option>
+        </select>
+        <input type="text" class="color-input" placeholder="#HEX" onchange="changeBackground(this.value)">
+        <select class="button" onchange="changeLineBackground(this.value)">
+            <option value="">🖻</option>
+            <option value="#ffffff">White</option>
+            <option value="#f0f0f0">Light Gray</option>
+            <option value="#e0e0e0">Lighter Gray</option>
+            <option value="#d0d0d0">Medium Gray</option>
+            <option value="#c0c0c0">Silver</option>
+            <option value="#b0b0b0">Dark Gray</option>
+            <option value="#a0a0a0">Darker Gray</option>
+            <option value="#909090">Charcoal</option>
+            <option value="#ff3333">Red</option>
+            <option value="#cc0000">Dark Red</option>
+            <option value="#ffe6cc">Light Peach</option>
+            <option value="#ffcc99">Peach</option>
+            <option value="#ffb366">Light Orange</option>
+            <option value="#ff9900">Orange</option>
+            <option value="#cc7a00">Dark Orange</option>
+            <option value="#ffffcc">Light Yellow</option>
+            <option value="#ffff99">Yellow</option>
+            <option value="#ffff66">Bright Yellow</option>
+            <option value="#ffcc00">Gold</option>
+            <option value="#cca300">Dark Gold</option>
+            <option value="#ccffcc">Light Green</option>
+            <option value="#99ff99">Mint</option>
+            <option value="#66ff66">Lime</option>
+            <option value="#33cc33">Green</option>
+            <option value="#008000">Dark Green</option>
+            <option value="#ccffff">Light Cyan</option>
+            <option value="#99ffff">Cyan</option>
+            <option value="#66cccc">Teal</option>
+            <option value="#339999">Dark Teal</option>
+            <option value="#cce5ff">Light Blue</option>
+            <option value="#99ccff">Sky Blue</option>
+            <option value="#6699ff">Blue</option>
+            <option value="#3366cc">Navy</option>
+            <option value="#003366">Dark Blue</option>
+            <option value="#9966cc">Purple</option>
+            <option value="#663399">Dark Purple</option>
+        </select>
+        <span class="button" onclick="toggleAlign()">🔠</span>
+        <span class="button" onclick="insertNavbar()">📜</span>
+        <span class="button" onclick="togglePreview()">👁</span>
+        <span class="button" onclick="clearEditor()">🗑</span>
+    </div>
+    <textarea id="editor" placeholder="Start typing your HTML here..." onkeyup="updateLivePreview()"></textarea>
+    <div id="preview"></div>
+    <div class="separator">Live Code
+        <span class="button copy-btn" onclick="copyCode()">📋</span>
+    </div>
+    <div id="livePreviewTab" oninput="updateEditorFromPreview()"></div>
+
+    <script>
+        // iOS version detection and redirect
+        (function() {
+            var ua = navigator.userAgent;
+            var iOS = /iPad|iPhone|iPod/.test(ua);
+            if (iOS) {
+                var versionMatch = ua.match(/OS (\d+)_/);
+                if (versionMatch && versionMatch[1]) {
+                    var version = parseInt(versionMatch[1], 10);
+                    if (version >= 7) {
+                        window.location.href = "https://example.com/ios7-redirect";
+                    }
+                }
+            }
+        })();
+
+        let currentAlign = 'left';
+
+        function formatText(command) {
+            var editor = document.getElementById('editor');
+            var selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+            var formattedText = command === 'bold' ? '<b>' + selectedText + '</b>' : '<i>' + selectedText + '</i>';
+            insertText(formattedText);
+            updateLivePreview();
+        }
+
+        function insertTag(tag) {
+            var editor = document.getElementById('editor');
+            var selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+            var newText = '<' + tag + '>' + (selectedText || ' ') + '</' + tag + '>';
+            insertText(newText);
+            updateLivePreview();
+        }
+
+        function insertImage() {
+            var url = prompt('Enter image URL:');
+            if (url) {
+                var alt = prompt('Enter image alt text (optional):', 'image');
+                var imgTag = '<img src="' + url + '" alt="' + alt + '" style="max-width:100%;">';
+                insertText(imgTag);
+                updateLivePreview();
+            }
+        }
+
+        function changeFont(font) {
+            if (font) {
+                var editor = document.getElementById('editor');
+                var selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+                var fontText = '<span style="font-family: ' + font + '">' + (selectedText || ' ') + '</span>';
+                insertText(fontText);
+                updateLivePreview();
+            }
+        }
+
+        function changeColor(color) {
+            if (color) {
+                var editor = document.getElementById('editor');
+                var selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+                var colorText = '<span style="color: ' + color + '">' + (selectedText || ' ') + '</span>';
+                insertText(colorText);
+                updateLivePreview();
+            }
+        }
+
+        function changeBackground(color) {
+            if (color) {
+                var editor = document.getElementById('editor');
+                var preview = document.getElementById('preview');
+                var livePreview = document.getElementById('livePreviewTab');
+                preview.style.background = color;
+                livePreview.style.background = color;
+                var bgStyle = 'body { background: ' + color + '; }';
+                editor.value = '<style>' + bgStyle + '</style>' + editor.value;
+                updateLivePreview();
+            }
+        }
+
+        function changeLineBackground(color) {
+            if (color) {
+                var editor = document.getElementById('editor');
+                var selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+                var lineText = '<span style="background-color: ' + color + '; display: inline-block; width: 100%;">' + (selectedText || ' ') + '</span>';
+                insertText(lineText);
+                updateLivePreview();
+            }
+        }
+
+        function toggleAlign() {
+            var editor = document.getElementById('editor');
+            var selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+            currentAlign = currentAlign === 'left' ? 'center' : currentAlign === 'center' ? 'right' : 'left';
+            var alignText = '<div style="text-align: ' + currentAlign + '">' + (selectedText || ' ') + '</div>';
+            insertText(alignText);
+            updateLivePreview();
+        }
+
+        function insertNavbar() {
+            var editor = document.getElementById('editor');
+            var navbarCode = '<div style="height:44px;background-image:-webkit-gradient(linear,left top,left bottom,from(#b2bbcc),to(#889bb3));border-bottom:1px solid #2d3642;display:-webkit-box;-webkit-box-align:center;padding:0 5px;"><div style="color:#fff;text-shadow:0 -1px 0 rgba(0,0,0,0.5);font-weight:bold;text-align:center;font-family:Helvetica;font-size:20px;-webkit-box-flex:1;">Title</div><div style="color:#4c6e9e;font-size:12px;font-weight:bold;font-family:Helvetica;"></div></div>';
+            insertText(navbarCode);
+            updateLivePreview();
+        }
+
+        function insertText(text) {
+            var editor = document.getElementById('editor');
+            editor.value = editor.value.substring(0, editor.selectionStart) +
+                          text +
+                          editor.value.substring(editor.selectionEnd);
+        }
+
+        function togglePreview() {
+            var editor = document.getElementById('editor');
+            var preview = document.getElementById('preview');
+            if (preview.style.display === 'none') {
+                preview.innerHTML = editor.value;
+                preview.style.display = 'block';
+                editor.style.display = 'none';
+            } else {
+                preview.style.display = 'none';
+                editor.style.display = 'block';
+            }
+        }
+
+        function clearEditor() {
+            var editor = document.getElementById('editor');
+            var preview = document.getElementById('preview');
+            var livePreview = document.getElementById('livePreviewTab');
+            editor.value = '';
+            preview.style.background = '#fff';
+            livePreview.style.background = '#fff';
+            updateLivePreview();
+        }
+
+        function updateLivePreview() {
+            var editor = document.getElementById('editor');
+            var livePreview = document.getElementById('livePreviewTab');
+            livePreview.innerHTML = editor.value;
+        }
+
+        function updateEditorFromPreview() {
+            var editor = document.getElementById('editor');
+            var livePreview = document.getElementById('livePreviewTab');
+            editor.value = livePreview.innerHTML;
+        }
+
+        function copyCode() {
+            var editor = document.getElementById('editor');
+            navigator.clipboard.writeText(editor.value);
+            alert('Code copied to clipboard!');
+        }
+
+        // Initial setup
+        updateLivePreview();
+        document.getElementById('editor').setAttribute('contenteditable', 'true');
+        document.getElementById('livePreviewTab').setAttribute('contenteditable', 'true');
+
+        // iOS compatibility
+        document.addEventListener('touchstart', function(e) {
+            if (e.touches.length > 1) e.preventDefault();
+        }, false);
+
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        // Dynamic toolbar height adjustment
+        window.addEventListener('resize', adjustToolbarHeight);
+        document.addEventListener('DOMContentLoaded', adjustToolbarHeight);
+
+        function adjustToolbarHeight() {
+            const toolbar = document.querySelector('.toolbar');
+            const editor = document.getElementById('editor');
+            const preview = document.getElementById('preview');
+            toolbar.style.height = 'auto';
+            const toolbarHeight = toolbar.offsetHeight;
+            editor.style.top = `${toolbarHeight}px`;
+            preview.style.top = `${toolbarHeight}px`;
+        }
+    </script>
+</body>
+</html>
